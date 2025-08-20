@@ -15,3 +15,10 @@ services:
     ports:
       - port: 5000
         protocol: HTTP
+
+  - type: worker
+    name: health-check
+    env: python
+    plan: free
+    buildCommand: pip install flask
+    startCommand: python health_check.py

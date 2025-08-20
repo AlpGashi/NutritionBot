@@ -8,25 +8,12 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, ConversationHandler, filters
 import re
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+import http.server
+import socketserver
 import threading
 
 # Load environment variables
 load_dotenv()
-
-# Create Flask app for health checks
-app = Flask(__name__)
-
-@app.route('/')
-def health_check():
-    return jsonify({"status": "healthy", "bot": "running"})
-
-def run_flask():
-    app.run(host='0.0.0.0', port=5000)
-
-# Start Flask in a separate thread
-flask_thread = threading.Thread(target=run_flask, daemon=True)
-flask_thread.start()
 
 # 🔐 Credentials from environment variables
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -51,6 +38,24 @@ try:
         known_foods = json.load(f)
 except FileNotFoundError:
     known_foods = {}
+
+# Simple HTTP server for health checks
+class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status": "healthy", "bot": "running"}')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+def run_health_check():
+    PORT = 5000
+    with socketserver.TCPServer(("", PORT), HealthCheckHandler) as httpd:
+        print(f"Health check server running on port {PORT}")
+        httpd.serve_forever()
 
 # 🧮 BMR Calculation Functions
 def calculate_bmr(gender, weight, height, age):
@@ -169,16 +174,6 @@ def parse_food_text(text):
     }
     
     # Improved pattern matching with better capture groups
-    patterns = [
-        # Pattern for "100g chicken breast" - capture food name properly
-        r'(\d+)\s*g\s*([a-zA-Z][a-zA-Z\s]*?)(?=\d|$|g|tbsp|tsp)',
-        # Pattern for "2 bananas" - capture food name properly
-        r'(\d+)\s+([a-zA-Z][a-zA-Z\s]*?)(?=\d|$|g|tbsp|tsp)',
-        # Pattern for "2 tbsp oil" - capture food name properly
-        r'(\d+)\s*(tbsp|tsp|tablespoon|teaspoon)\s+([a-zA-Z][a-zA-Z\s]*)',
-    ]
-    
-    # First, extract all potential food items with quantities
     potential_items = []
     
     # Pattern 1: Xg FOOD (e.g., "100g chicken breast")
@@ -510,7 +505,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 🏁 Main Function
 def main():
-    print("🤖 Starting Nutrition Telegram Bot with Health Check...")
+    print("🤖 Starting Nutrition Telegram Bot...")
+    
+    # Start health check server in a separate thread
+    health_thread = threading.Thread(target=run_health_check, daemon=True)
+    health_thread.start()
+    
+    # Start Telegram bot
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # Conversation handler
