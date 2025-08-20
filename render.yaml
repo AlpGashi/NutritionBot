@@ -12,13 +12,13 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
-    ports:
-      - port: 5000
-        protocol: HTTP
 
-  - type: worker
+  - type: web
     name: health-check
     env: python
     plan: free
     buildCommand: pip install flask
     startCommand: python health_check.py
+    envVars:
+      - key: PORT
+        value: 5000

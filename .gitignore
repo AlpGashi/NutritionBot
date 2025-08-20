@@ -1,6 +1,5 @@
 .env
 .env.local
-.env.production
 *.pyc
 __pycache__/
 venv/

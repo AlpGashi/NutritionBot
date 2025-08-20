@@ -8,9 +8,6 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, ConversationHandler, filters
 import re
 from dotenv import load_dotenv
-import http.server
-import socketserver
-import threading
 
 # Load environment variables
 load_dotenv()
@@ -38,24 +35,6 @@ try:
         known_foods = json.load(f)
 except FileNotFoundError:
     known_foods = {}
-
-# Simple HTTP server for health checks
-class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(b'{"status": "healthy", "bot": "running"}')
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-def run_health_check():
-    PORT = 5000
-    with socketserver.TCPServer(("", PORT), HealthCheckHandler) as httpd:
-        print(f"Health check server running on port {PORT}")
-        httpd.serve_forever()
 
 # 🧮 BMR Calculation Functions
 def calculate_bmr(gender, weight, height, age):
@@ -507,10 +486,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     print("🤖 Starting Nutrition Telegram Bot...")
     
-    # Start health check server in a separate thread
-    health_thread = threading.Thread(target=run_health_check, daemon=True)
-    health_thread.start()
-    
     # Start Telegram bot
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
@@ -535,7 +510,7 @@ def main():
     application.add_handler(MessageHandler(filters.Regex('^(📈 Today\'s Calories)$'), show_todays_calories))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("✅ Bot is running with health check at port 5000")
+    print("✅ Bot is running!")
     application.run_polling()
 
 if __name__ == "__main__":
